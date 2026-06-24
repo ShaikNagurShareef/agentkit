@@ -229,18 +229,9 @@ endpoints (no CORS):
 Layered; each layer depends only on those below and is swappable behind a typed
 (Pydantic v2) interface.
 
-```mermaid
-flowchart TB
-  SDK["<b>Public API</b> &nbsp; Agent · Flow · @tool · serve"]
-  ENG["<b>Engine</b> &nbsp; GraphCompiler → CompiledGraph → Executor"]
-  RT["<b>Runtime</b> &nbsp; FastAPI · Agent UI + Dashboard · Checkpointer"]
-  PRO["<b>Protocols</b> &nbsp; MCP · A2A"]
-  CAP["<b>Capabilities</b> &nbsp; Memory · Tools · Observability · Identity"]
-  MOD["<b>Providers</b> &nbsp; Anthropic · OpenAI · Gemini · Groq"]
-  SDK --> ENG --> RT --> PRO --> CAP --> MOD
-  classDef layer fill:#eef2ff,stroke:#6366f1,color:#1e293b;
-  class SDK,ENG,RT,PRO,CAP,MOD layer;
-```
+<p align="center">
+  <img src="assets/architecture.png" alt="AgentKit layered architecture" width="820">
+</p>
 
 ### Module map
 
