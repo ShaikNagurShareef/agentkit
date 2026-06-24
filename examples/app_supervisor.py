@@ -1,9 +1,9 @@
 """Hierarchical / supervisory multi-agent system — a research desk.
 
 A supervisor agent delegates to specialist subagents exposed as tools
-(`Agent.as_tool()`). This is the "subagents are treated as tools" pattern from
-Anthropic's *Building Effective AI Agents*: the supervisor's ReAct loop calls
-ask_researcher / ask_analyst / ask_writer, each a full agent with its own tools.
+(`Agent.as_tool()`) — the hierarchical "subagents as tools" pattern: the
+supervisor's ReAct loop calls ask_researcher / ask_analyst / ask_writer, each a
+full agent with its own tools.
 
     bash examples/start_supervisor.sh     # Agent UI :8815 · dashboard :8915
 

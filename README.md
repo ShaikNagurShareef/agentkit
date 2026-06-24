@@ -78,8 +78,8 @@ timeline as it completes.
 A **supervisor** agent delegates to specialist subagents exposed via
 `Agent.as_tool()`. The Research Desk's `research-director` calls
 `ask_researcher` / `ask_analyst` / `ask_writer` (purple `agent`-source tool calls)
-through its ReAct loop — the timeline shows each delegation. This is the doc's
-"subagents are treated as tools" hierarchical pattern.
+through its ReAct loop — the timeline shows each delegation. This is the
+hierarchical "subagents as tools" pattern.
 
 ![Hierarchical supervisor](assets/screenshots/dashboard-supervisor.png)
 
@@ -167,9 +167,9 @@ install deps, start the server, and open the Agent UI.
 
 ### Multi-agent architecture patterns
 
-AgentKit covers the patterns from Anthropic's *Building Effective AI Agents*:
+AgentKit covers the common agent architecture patterns:
 
-| Pattern (from the doc) | AgentKit feature | Demonstrated by |
+| Pattern | AgentKit feature | Demonstrated by |
 |---|---|---|
 | **Single-agent / ReAct** | `Agent` (4-node graph, tool loop) | healthcare, research |
 | **Sequential workflow** | `Flow().step().step()` | finance (profiler→…→synthesis) |
@@ -231,48 +231,15 @@ Layered; each layer depends only on those below and is swappable behind a typed
 
 ```mermaid
 flowchart TB
-  subgraph SDK["Public SDK API"]
-    direction LR
-    A[Agent]
-    F[Flow]
-    TT["@tool / Tool"]
-    EVR[EvalRunner]
-  end
-  subgraph ENG["Engine"]
-    direction LR
-    GC[GraphCompiler]
-    CGI[[CompiledGraph · LangGraph]]
-    AST[AgentState channels]
-    EXE[Executor]
-  end
-  subgraph RT["Runtime"]
-    direction LR
-    CA[create_app · FastAPI]
-    UIS[Agent UI + Dashboard]
-    CKP[Checkpointer]
-    SES[SessionManager]
-  end
-  subgraph PRO["Protocols"]
-    direction LR
-    MCPC[MCP client]
-    MCPS[MCP server]
-    A2A[A2A client / server]
-  end
-  subgraph CAP["Capabilities"]
-    direction LR
-    MEM[MemoryStore]
-    TLS[Tools: code / browser / computer]
-    OBS[Tracer + Eval]
-    IDN[Identity / Secrets]
-  end
-  subgraph MOD["Providers · official SDKs"]
-    direction LR
-    ANT[Anthropic]
-    OAI[OpenAI]
-    GEM[Gemini]
-    GRQ[Groq]
-  end
+  SDK["<b>Public API</b> &nbsp; Agent · Flow · @tool · serve"]
+  ENG["<b>Engine</b> &nbsp; GraphCompiler → CompiledGraph → Executor"]
+  RT["<b>Runtime</b> &nbsp; FastAPI · Agent UI + Dashboard · Checkpointer"]
+  PRO["<b>Protocols</b> &nbsp; MCP · A2A"]
+  CAP["<b>Capabilities</b> &nbsp; Memory · Tools · Observability · Identity"]
+  MOD["<b>Providers</b> &nbsp; Anthropic · OpenAI · Gemini · Groq"]
   SDK --> ENG --> RT --> PRO --> CAP --> MOD
+  classDef layer fill:#eef2ff,stroke:#6366f1,color:#1e293b;
+  class SDK,ENG,RT,PRO,CAP,MOD layer;
 ```
 
 ### Module map
@@ -295,16 +262,16 @@ flowchart TB
 
 ```mermaid
 flowchart LR
-  AG[Agent / Flow] -- compile --> GC[GraphCompiler]
-  GC --> CG[[CompiledGraph · LangGraph]]
+  AG["Agent / Flow"] -- compile --> GC[GraphCompiler]
+  GC --> CG[[CompiledGraph on LangGraph]]
   EX[Executor.astream] --> CG
   CG --> MR[memory_read] --> MEM[(MemoryStore)]
   CG --> MD[model node] --> MP[ModelProvider]
-  MP --> SDKS[(Anthropic / OpenAI / Gemini / Groq)]
+  MP --> SDKS[("Anthropic / OpenAI / Gemini / Groq")]
   CG --> TL[tool node] --> TOOLS[Tool.invoke]
   TOOLS --> MCPC[MCP client]
   TOOLS --> A2AC[A2A peer]
-  TOOLS --> CODE[Subprocess / E2B exec]
+  TOOLS --> CODE["Subprocess / E2B exec"]
   CG --> MW[memory_write] --> MEM
   EX --> CKPT[(AsyncSqliteSaver)]
   MD -. spans .-> TR[Tracer to Langfuse]

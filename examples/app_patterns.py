@@ -1,6 +1,6 @@
 """Evaluator-optimizer multi-agent workflow — generate ↔ critique ↔ revise.
 
-Two agents in iterative cycles (the doc's evaluator-optimizer pattern): a writer
+Two agents in iterative cycles (the evaluator-optimizer pattern): a writer
 generates, an editor evaluates and gives feedback, and the writer revises. Built
 as a Flow so each pass is a node that animates in the dashboard's orchestration
 graph:
