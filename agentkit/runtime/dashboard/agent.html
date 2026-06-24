@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Agent</title>
+<style>
+  :root{--bg:#0e1116;--panel:#161b22;--panel2:#1c2430;--line:#283242;--ink:#e6edf3;
+        --muted:#8b97a7;--accent:#e0552d;--accent2:#3b82f6;--green:#3fb950;--user:#1f2937;}
+  *{box-sizing:border-box}
+  html{font-size:16px}
+  body{margin:0;height:100vh;display:flex;flex-direction:column;font:1rem/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink)}
+  code,pre,.mono{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace}
+  header{display:flex;align-items:center;gap:12px;padding:14px 22px;border-bottom:1px solid var(--line);background:var(--panel)}
+  header .name{font-weight:700;font-size:18px}
+  header .desc{color:var(--muted);font-size:13px;max-width:680px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pill{font-size:12px;padding:3px 10px;border:1px solid var(--line);border-radius:999px;color:var(--muted)}
+  .spacer{flex:1}
+  a.dash{font-size:13px;color:var(--accent2);text-decoration:none;border:1px solid var(--accent2);padding:6px 12px;border-radius:8px}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--muted);display:inline-block;margin-right:5px}
+  .dot.ok{background:var(--green)}
+  main{flex:1;overflow:auto;display:flex;justify-content:center}
+  .thread{width:min(860px,92vw);padding:24px 8px 120px}
+  .msg{display:flex;gap:12px;margin:18px 0}
+  .msg .av{width:30px;height:30px;border-radius:8px;flex:none;display:grid;place-items:center;font-size:13px;font-weight:700}
+  .msg.user .av{background:var(--user);color:var(--ink)}
+  .msg.assistant .av{background:var(--accent);color:#fff}
+  .bubble{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 15px;white-space:pre-wrap;word-break:break-word;flex:1}
+  .msg.user .bubble{background:var(--panel2)}
+  .tools{margin:8px 0 2px;display:flex;flex-direction:column;gap:6px}
+  .toolchip{font-size:13px;border:1px solid var(--line);border-left:3px solid var(--accent2);border-radius:8px;background:var(--panel2);overflow:hidden}
+  .toolchip summary{cursor:pointer;padding:7px 11px;color:var(--ink);list-style:none}
+  .toolchip summary::-webkit-details-marker{display:none}
+  .toolchip .nm{color:var(--accent2);font-weight:600}
+  .toolchip pre{margin:0;padding:8px 11px;border-top:1px solid var(--line);white-space:pre-wrap;word-break:break-word;font-size:12px;color:var(--muted);max-height:200px;overflow:auto}
+  .typing{color:var(--muted);font-size:13px}
+  .composer{position:fixed;bottom:0;left:0;right:0;display:flex;justify-content:center;padding:16px;background:linear-gradient(transparent,var(--bg) 28%)}
+  .cwrap{width:min(860px,92vw);display:flex;gap:10px;align-items:flex-end;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 12px}
+  textarea{flex:1;background:transparent;border:0;color:var(--ink);font:inherit;resize:none;max-height:180px;outline:none}
+  button.send{background:var(--accent);color:#fff;border:0;border-radius:10px;padding:10px 16px;font-weight:600;cursor:pointer}
+  button.send:disabled{opacity:.45;cursor:default}
+  .examples{width:min(860px,92vw);display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 0}
+  .ex{font-size:13px;color:var(--ink);background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:7px 13px;cursor:pointer}
+  .ex:hover{border-color:var(--accent2)}
+  .empty{color:var(--muted);text-align:center;margin-top:14vh}
+  .empty h2{color:var(--ink);font-weight:600;margin:0 0 6px}
+</style>
+</head>
+<body>
+<header>
+  <div class="name" id="name">Agent</div>
+  <span id="kind" class="pill"></span>
+  <span id="model" class="pill"></span>
+  <div class="desc" id="desc"></div>
+  <span class="spacer"></span>
+  <span class="pill"><span id="dot" class="dot"></span><span id="stat">…</span></span>
+  <a class="dash" id="dashLink" href="#" target="_blank" style="display:none">Orchestrator dashboard ↗</a>
+</header>
+<main><div class="thread" id="thread">
+  <div class="empty" id="empty"><h2 id="welcome">How can I help?</h2><div>Ask a question to get started.</div>
+    <div class="examples" id="examples" style="justify-content:center;margin-top:16px"></div></div>
+</div></main>
+<div class="composer"><div class="cwrap">
+  <textarea id="input" rows="1" placeholder="Message the agent…"></textarea>
+  <button class="send" id="send">Send</button>
+</div></div>
+<script>
+const $=s=>document.querySelector(s);
+const el=(t,c,h)=>{const e=document.createElement(t);if(c)e.className=c;if(h!=null)e.innerHTML=h;return e;};
+const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const SESSION='chat_'+Math.random().toString(36).slice(2,10);
+let busy=false, INFO=null;
+
+async function boot(){
+  INFO=await (await fetch('/info')).json();
+  $('#name').textContent=INFO.name; $('#kind').textContent=INFO.kind;
+  $('#model').textContent=INFO.model||''; $('#desc').textContent=INFO.description||'';
+  if(INFO.dashboard_url){const a=$('#dashLink');a.href=INFO.dashboard_url;a.style.display='inline-block';}
+  const ex=$('#examples'); (INFO.examples||[]).forEach(s=>{const c=el('div','ex',esc(s));c.onclick=()=>{$('#input').value=s;send();};ex.append(c);});
+  poll();
+}
+async function poll(){try{const r=await fetch('/healthz');const ok=r.status===200;$('#dot').className='dot '+(ok?'ok':'');$('#stat').textContent=ok?'ready':'starting';}catch{$('#stat').textContent='down';}setTimeout(poll,4000);}
+
+function addMsg(role,text){
+  $('#empty')?.remove();
+  const m=el('div','msg '+role); m.append(el('div','av',role==='user'?'YOU':'AI'));
+  const b=el('div','bubble'); if(text)b.textContent=text; m.append(b);
+  $('#thread').append(m); scroll(); return m;
+}
+function scroll(){const t=document.querySelector('main');t.scrollTop=t.scrollHeight;}
+
+$('#send').onclick=send;
+$('#input').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();}});
+$('#input').addEventListener('input',e=>{e.target.style.height='auto';e.target.style.height=Math.min(180,e.target.scrollHeight)+'px';});
+
+async function send(){
+  const text=$('#input').value.trim(); if(!text||busy)return;
+  busy=true; $('#send').disabled=true; $('#input').value=''; $('#input').style.height='auto';
+  addMsg('user',text);
+  const m=addMsg('assistant',''); const bubble=m.querySelector('.bubble');
+  const toolbox=el('div','tools'); m.insertBefore(toolbox,bubble);
+  const typing=el('span','typing','thinking…'); bubble.append(typing);
+  let answer='';
+  try{
+    const resp=await fetch('/invoke',{method:'POST',headers:{'content-type':'application/json'},
+      body:JSON.stringify({input:text,session_id:SESSION,stream:true})});
+    const reader=resp.body.getReader(); const dec=new TextDecoder(); let buf='';
+    while(true){const {value,done}=await reader.read(); if(done)break; buf+=dec.decode(value,{stream:true});
+      let i; while((i=buf.indexOf('\n\n'))>=0){const raw=buf.slice(0,i);buf=buf.slice(i+2);
+        let data=null; raw.split('\n').forEach(l=>{if(l.startsWith('data:')){try{data=JSON.parse(l.slice(5).trim());}catch{}}});
+        if(!data)continue;
+        if(data.type==='tool_start'){typing.remove();
+          const d=el('details','toolchip');
+          d.innerHTML=`<summary>🔧 <span class="nm">${esc(data.name)}</span> <span class="typing">running…</span></summary><pre>args: ${esc(JSON.stringify(data.args))}</pre>`;
+          d.dataset.id=data.id; toolbox.append(d); scroll();
+        } else if(data.type==='tool_end'){
+          const d=[...toolbox.children].find(x=>x.dataset.id===data.id)||toolbox.lastChild;
+          if(d){d.querySelector('.typing')?.remove();
+            d.querySelector('pre').innerHTML+=`\nresult: ${esc(JSON.stringify(data.content))}`;}
+        } else if(data.type==='token'){typing.remove(); answer+=data.text; bubble.textContent=answer; scroll();
+        } else if(data.type==='node_start'){typing.remove();
+          const d=el('details','toolchip'); d.style.borderLeftColor='#a371f7';
+          d.innerHTML=`<summary>▸ <span class="nm" style="color:#a371f7">${esc(data.name)}</span> <span class="typing">(${esc(data.kind)})…</span></summary><pre></pre>`;
+          d.dataset.node=data.id; toolbox.append(d); scroll();
+        } else if(data.type==='node_end'){
+          const d=[...toolbox.children].reverse().find(x=>x.dataset.node===data.id);
+          if(d){d.querySelector('.typing')?.remove(); d.querySelector('pre').textContent=data.output||'';}
+        } else if(data.type==='done'){typing.remove();
+          if(!answer && data.result?.output){answer=data.result.output; bubble.textContent=answer;}
+          if(data.result?.trace_url){const a=el('a',null,'view trace ↗');a.href=data.result.trace_url;a.target='_blank';a.style.cssText='display:block;margin-top:8px;font-size:12px;color:#3b82f6';bubble.append(a);}
+        } else if(data.type==='error'){typing.remove(); bubble.append(el('div','typing','⚠ '+esc(data.error?.message||'error')));}
+      }
+    }
+    if(!answer && !toolbox.children.length){bubble.textContent='(no response)';}
+  }catch(e){typing.remove(); bubble.append(el('div','typing','⚠ '+esc(String(e))));}
+  busy=false; $('#send').disabled=false; $('#input').focus();
+}
+boot();
+</script>
+</body>
+</html>

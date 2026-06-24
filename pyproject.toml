@@ -1,0 +1,81 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+# Distribution name (pip install). The import package is `agentkit`.
+name = "agentkit-orchestrator"
+version = "0.1.0"
+description = "A library-first, VM-free agent harness & orchestration platform with a built-in dashboard, MCP/A2A, memory, and observability."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Nagur Shareef Shaik", email = "shaiknagurshareef6@gmail.com" }]
+keywords = [
+    "agents", "agentic", "llm", "orchestration", "multi-agent", "mcp", "a2a",
+    "langgraph", "rag", "tools", "observability", "ai",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+]
+dependencies = [
+    "pydantic>=2",
+    "langgraph>=0.2",
+    "langgraph-checkpoint-sqlite>=2",
+    "aiosqlite>=0.19",
+    "tenacity>=8",
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.27",
+    "prometheus-client>=0.20",
+]
+
+[project.optional-dependencies]
+anthropic = ["anthropic>=0.40"]
+openai = ["openai>=1.40"]
+gemini = ["google-genai>=0.3"]
+groq = ["groq>=0.11"]
+browser = ["browser-use>=0.1", "playwright>=1.40"]
+sandbox = ["e2b-code-interpreter>=1.0"]
+computer = ["pyautogui>=0.9"]
+memory = ["qdrant-client>=1.7", "chromadb>=0.5"]
+eval = ["deepeval>=1.0", "ragas>=0.2"]
+langfuse = ["langfuse>=2.0"]
+yaml = ["pyyaml>=6.0"]
+all = ["agentkit-orchestrator[anthropic,openai,gemini,groq,browser,sandbox,langfuse,yaml]"]
+dev = ["pytest>=8", "pytest-asyncio>=0.23", "httpx>=0.27", "pyyaml>=6.0"]
+
+[project.urls]
+Homepage = "https://github.com/ShaikNagurShareef/agentkit"
+Repository = "https://github.com/ShaikNagurShareef/agentkit"
+Issues = "https://github.com/ShaikNagurShareef/agentkit/issues"
+
+[project.scripts]
+agentkit = "agentkit.cli:main"
+
+# Third-party tools register here (group: agentkit.tools)
+[project.entry-points."agentkit.tools"]
+
+# Third-party stores/checkpointers/executors register here
+[project.entry-points."agentkit.backends"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["agentkit"]
+# Non-Python assets (the dashboard / Agent-UI HTML) live inside the package and
+# are included by default; listed here for clarity.
+artifacts = ["agentkit/runtime/dashboard/*.html"]
+
+[tool.hatch.build.targets.sdist]
+include = ["agentkit", "examples", "tests", "README.md", "LICENSE", "pyproject.toml"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

@@ -1,0 +1,510 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AgentKit · Orchestrator</title>
+<style>
+  :root{
+    --bg:#0e1116; --panel:#161b22; --panel2:#1c2430; --line:#283242; --ink:#e6edf3;
+    --muted:#8b97a7; --accent:#e0552d; --accent2:#3b82f6; --green:#3fb950; --amber:#d29922;
+    --red:#f85149; --purple:#a371f7;
+  }
+  *{box-sizing:border-box}
+  html{font-size:16px}
+  body{margin:0;font:1rem/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink)}
+  code,pre,.mono{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace}
+  header{display:flex;align-items:center;gap:14px;padding:12px 18px;border-bottom:1px solid var(--line);background:var(--panel)}
+  header .logo{font-weight:700;font-size:16px;letter-spacing:.3px}
+  header .logo b{color:var(--accent)}
+  .pill{font-size:11px;padding:2px 8px;border:1px solid var(--line);border-radius:999px;color:var(--muted)}
+  .pill.kind{color:var(--ink);border-color:var(--accent);background:rgba(224,85,45,.12)}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--muted);display:inline-block}
+  .dot.ok{background:var(--green)} .dot.bad{background:var(--red)}
+  .spacer{flex:1}
+  .tabs{display:flex;gap:4px;padding:0 14px;border-bottom:1px solid var(--line);background:var(--panel)}
+  .tab{padding:10px 14px;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;font-weight:500}
+  .tab.active{color:var(--ink);border-bottom-color:var(--accent)}
+  main{padding:22px 28px;max-width:1640px;margin:0 auto}
+  .view{display:none} .view.active{display:block}
+  .row{display:grid;grid-template-columns:1fr 380px;gap:16px}
+  @media(max-width:960px){.row{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:14px}
+  .card h3{margin:0 0 10px;font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+  textarea,input,select{width:100%;background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:9px 11px;font:inherit}
+  textarea{min-height:84px;resize:vertical}
+  .controls{display:flex;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap}
+  button{background:var(--accent);color:#fff;border:0;border-radius:8px;padding:9px 16px;font-weight:600;cursor:pointer}
+  button.ghost{background:transparent;border:1px solid var(--line);color:var(--ink)}
+  button:disabled{opacity:.5;cursor:default}
+  label.chk{display:flex;align-items:center;gap:6px;color:var(--muted);cursor:pointer}
+  .badge{font-size:10px;padding:1px 7px;border-radius:6px;border:1px solid var(--line);color:var(--muted)}
+  .badge.local{color:var(--green);border-color:var(--green)}
+  .badge.mcp{color:var(--accent2);border-color:var(--accent2)}
+  .badge.a2a{color:var(--purple);border-color:var(--purple)}
+  .badge.agent{color:var(--purple);border-color:var(--purple)}
+  /* graph */
+  #graphWrap,#graphWrap2{overflow:auto;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:18px;min-height:140px}
+  #graph,#graph2{position:relative;min-height:120px}
+  .gnode{position:absolute;width:128px;text-align:center;padding:10px 12px;border-radius:9px;border:1px solid var(--line);
+         background:var(--panel);font-size:13px;transition:all .25s;z-index:2}
+  .gnode .k{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+  .gnode.kind-agent{border-color:var(--accent2)} .gnode.kind-function{border-color:var(--muted)}
+  .gnode.kind-model{border-color:var(--accent)} .gnode.kind-tool{border-color:var(--green)}
+  .gnode.kind-flow{border-color:var(--purple)}
+  .gnode.kind-start,.gnode.kind-end{background:var(--panel2);color:var(--muted)}
+  .gnode.kind-condition,.gnode.kind-merge{border-style:dashed;color:var(--muted)}
+  .gnode.active{box-shadow:0 0 0 2px var(--accent),0 0 18px rgba(224,85,45,.5);transform:scale(1.05)}
+  .gnode.complete{border-color:var(--green)}
+  .gnode.err,.gnode.kind-error{border-color:var(--red);color:var(--red)}
+  #edges,#edges2{position:absolute;top:0;left:0;z-index:1;overflow:visible}
+  /* timeline */
+  .ev{display:flex;gap:10px;padding:7px 0;border-bottom:1px solid var(--line);font-size:13px}
+  .ev .t{width:88px;color:var(--muted);font-size:11px;flex:none}
+  .ev .ico{width:18px;flex:none;text-align:center}
+  .ev pre{margin:4px 0 0;background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:7px 9px;white-space:pre-wrap;word-break:break-word;font-size:12px;max-height:160px;overflow:auto}
+  .out{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:12px;white-space:pre-wrap;min-height:48px}
+  .kv{display:flex;gap:10px;flex-wrap:wrap;color:var(--muted);font-size:12px;margin-top:8px}
+  .kv b{color:var(--ink);font-weight:600}
+  .tool{border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin:6px 0;background:var(--panel)}
+  .tool .nm{font-weight:600}
+  a{color:var(--accent2)}
+  .hint{color:var(--muted);font-size:12px}
+  .ex{cursor:pointer;color:var(--accent2);text-decoration:underline;margin-right:10px}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">Agent<b>Kit</b> · Orchestrator</div>
+  <span id="kind" class="pill kind">…</span>
+  <span id="name" class="pill">…</span>
+  <span id="model" class="pill"></span>
+  <span class="spacer"></span>
+  <span id="caps"></span>
+  <a id="otherUI" href="#" target="_blank" style="display:none;font-size:13px;color:var(--accent2);text-decoration:none;border:1px solid var(--accent2);padding:5px 11px;border-radius:8px">Agent UI ↗</a>
+  <span class="pill"><span id="hdot" class="dot"></span> <span id="hstat">…</span></span>
+</header>
+<div class="tabs">
+  <div class="tab active" data-v="run">Run</div>
+  <div class="tab" data-v="components">Components</div>
+  <div class="tab" data-v="graph">Orchestration</div>
+  <div class="tab" data-v="tools">Tools</div>
+  <div class="tab" data-v="memory">Memory</div>
+  <div class="tab" data-v="evals">Evals</div>
+  <div class="tab" data-v="runs">Runs</div>
+  <div class="tab" data-v="metrics">Metrics</div>
+  <div class="tab" data-v="about">About</div>
+</div>
+<main>
+  <!-- RUN -->
+  <section class="view active" id="v-run">
+    <div class="card">
+      <h3>Orchestration (live)</h3>
+      <div id="graphWrap"><div id="graph"><svg id="edges"></svg></div></div>
+    </div>
+    <div class="row">
+      <div>
+        <div class="card">
+          <h3>Input</h3>
+          <textarea id="input" placeholder="Ask the agent / flow…"></textarea>
+          <div id="examples" class="hint" style="margin-top:8px"></div>
+          <div class="controls">
+            <button id="run">▶ Run</button>
+            <label class="chk"><input type="checkbox" id="stream" checked> stream</label>
+            <input id="session" style="max-width:200px" placeholder="session id (optional)">
+          </div>
+        </div>
+        <div class="card">
+          <h3>Result</h3>
+          <div id="out" class="out"></div>
+          <div id="meta" class="kv"></div>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Event timeline</h3>
+        <div id="timeline"></div>
+      </div>
+    </div>
+  </section>
+  <!-- COMPONENTS -->
+  <section class="view" id="v-components">
+    <div class="card"><h3>Orchestration components</h3>
+      <div class="hint">Every capability of the platform, exposed by this running app. Click a component to explore it.</div>
+      <div id="components" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;margin-top:12px"></div>
+    </div>
+  </section>
+  <!-- EVALS -->
+  <section class="view" id="v-evals">
+    <div class="card"><h3>Evaluation runner</h3>
+      <div class="hint">Score this agent/flow against a dataset. Runs <code>POST /eval</code> with the built-in metrics.</div>
+      <textarea id="evalData" style="min-height:120px;margin-top:8px" class="mono"></textarea>
+      <div class="controls">
+        <label class="chk"><input type="checkbox" class="emetric" value="task_success" checked> task_success</label>
+        <label class="chk"><input type="checkbox" class="emetric" value="tool_correctness" checked> tool_correctness</label>
+        <label class="chk"><input type="checkbox" class="emetric" value="faithfulness"> faithfulness</label>
+        <label class="chk"><input type="checkbox" class="emetric" value="latency"> latency</label>
+        <button id="runEval">▶ Run eval</button>
+      </div>
+      <div id="evalOut"></div>
+    </div>
+  </section>
+  <!-- GRAPH -->
+  <section class="view" id="v-graph">
+    <div class="card"><h3>Topology</h3>
+      <div id="graphWrap2"><div id="graph2"><svg id="edges2"></svg></div></div>
+      <div class="hint" style="margin-top:10px">Nodes light up as the run executes. Boxes are agents, functions, the model loop, and tools; dashed nodes are conditional branches / parallel merges.</div>
+    </div>
+  </section>
+  <!-- TOOLS -->
+  <section class="view" id="v-tools"><div class="card"><h3>Tools</h3><div id="toolList"></div></div></section>
+  <!-- MEMORY -->
+  <section class="view" id="v-memory">
+    <div class="card"><h3>Memory organization</h3>
+      <div id="memStats" class="kv"></div>
+      <div class="controls" style="margin-top:10px">
+        <input id="memQ" placeholder="semantic search…" style="max-width:280px">
+        <select id="memScope" style="max-width:140px"><option>agent</option><option>user</option><option>session</option></select>
+        <button class="ghost" id="memSearch">Search</button>
+        <button class="ghost" id="memRefresh">Refresh</button>
+      </div>
+      <div id="memSearchOut"></div>
+    </div>
+    <div class="row" style="grid-template-columns:1fr 1fr 1fr">
+      <div class="card"><h3>session · short-term</h3><div id="mem-session"></div></div>
+      <div class="card"><h3>user · long-term</h3><div id="mem-user"></div></div>
+      <div class="card"><h3>agent · global</h3><div id="mem-agent"></div></div>
+    </div>
+    <div class="card"><h3>Rolling summaries</h3><div id="memSummaries"></div></div>
+  </section>
+  <!-- RUNS -->
+  <section class="view" id="v-runs">
+    <div class="card"><h3>Inspect a session</h3>
+      <div class="controls"><input id="rsid" placeholder="session id" style="max-width:260px">
+        <button class="ghost" id="loadRun">Load</button>
+        <button class="ghost" id="resumeRun">Resume</button></div>
+      <div id="runOut" class="out" style="margin-top:12px"></div>
+    </div>
+  </section>
+  <!-- METRICS -->
+  <section class="view" id="v-metrics"><div class="card"><h3>Prometheus metrics</h3>
+    <button class="ghost" id="refreshM">Refresh</button><pre id="metrics" class="mono" style="margin-top:10px"></pre></div></section>
+  <!-- ABOUT -->
+  <section class="view" id="v-about"><div class="card"><h3>About</h3>
+    <p>This dashboard is served by <b>AgentKit</b>'s runtime for <i>any</i> agent or flow via <code>create_app()</code>. The same object you call <code>.run()</code> on in-process is exposed here over HTTP with live token streaming (SSE), durable runs, MCP/A2A, and these introspection endpoints:</p>
+    <ul class="hint">
+      <li><code>POST /invoke</code> — run (JSON or <code>text/event-stream</code>)</li>
+      <li><code>GET /graph</code> — orchestration topology · <code>GET /info</code> — capabilities</li>
+      <li><code>GET /runs/{id}</code> · <code>POST /runs/{id}/resume</code> — durable runs</li>
+      <li><code>POST /mcp</code> · <code>GET /.well-known/agent.json</code> · <code>POST /a2a</code> — protocols</li>
+      <li><code>GET /metrics</code> · <code>GET /healthz</code></li>
+    </ul></div></section>
+</main>
+<script>
+const $ = s => document.querySelector(s);
+const el = (t,c,h)=>{const e=document.createElement(t); if(c)e.className=c; if(h!=null)e.innerHTML=h; return e;};
+let GRAPH=null, INFO=null;
+
+// tabs
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));
+  t.classList.add('active'); $('#v-'+t.dataset.v).classList.add('active');
+  if(t.dataset.v==='graph') layoutGraph('graph2','edges2');
+  if(t.dataset.v==='metrics') loadMetrics();
+  if(t.dataset.v==='memory') loadMemory();
+  if(t.dataset.v==='components') renderComponents();
+  if(t.dataset.v==='evals') seedEval();
+});
+
+async function boot(){
+  const info = await (await fetch('/info')).json();
+  INFO = info;
+  $('#kind').textContent = info.kind; $('#name').textContent = info.name;
+  $('#model').textContent = info.model || '';
+  const caps=$('#caps');
+  if(info.tools) caps.append(badge(info.tools+' tools','local'));
+  if(info.memory) caps.append(badge('memory','local'));
+  (info.mcp_servers||[]).length && caps.append(badge('MCP×'+info.mcp_servers.length,'mcp'));
+  (info.a2a_peers||[]).length && caps.append(badge('A2A×'+info.a2a_peers.length,'a2a'));
+  if(info.observability && !['noop','none'].includes(info.observability)) caps.append(badge('obs:'+info.observability,'a2a'));
+  GRAPH = await (await fetch('/graph')).json();
+  if(info.dashboard_url){const a=$('#otherUI');a.href=info.dashboard_url;a.style.display='inline-block';}
+  renderTools(); layoutGraph('graph','edges'); seedExamples(info);
+  pollHealth();
+}
+function badge(t,c){const b=el('span','badge '+(c||''),t); b.style.marginLeft='6px'; return b;}
+
+async function pollHealth(){
+  try{ const r=await fetch('/healthz'); const ok=r.status===200;
+    $('#hdot').className='dot '+(ok?'ok':'bad'); $('#hstat').textContent= ok?'ready':'starting';
+  }catch{ $('#hdot').className='dot bad'; $('#hstat').textContent='down'; }
+  setTimeout(pollHealth,4000);
+}
+
+// ---------- graph layout ----------
+function computeLevels(g){
+  const out={}, lvl={}, vis=new Set();
+  g.edges.forEach(e=>{(out[e.src]=out[e.src]||[]).push(e.dst);});
+  const start = g.nodes.find(n=>n.kind==='start')?.id || g.nodes[0].id;
+  const q=[[start,0]]; vis.add(start); lvl[start]=0;
+  while(q.length){const [n,d]=q.shift(); (out[n]||[]).forEach(m=>{ if(!vis.has(m)){vis.add(m);lvl[m]=d+1;q.push([m,d+1]);} });}
+  g.nodes.forEach(n=>{ if(lvl[n.id]==null) lvl[n.id]=0; });
+  return lvl;
+}
+function layoutGraph(gid,eid){
+  const g=GRAPH; if(!g) return;
+  const host=$('#'+gid); const svg=$('#'+eid);
+  [...host.querySelectorAll('.gnode')].forEach(n=>n.remove());
+  const lvl=computeLevels(g); const cols={};
+  g.nodes.forEach(n=>{(cols[lvl[n.id]]=cols[lvl[n.id]]||[]).push(n);});
+  const CW=210, RH=84, PADX=14, PADY=14, NW=128, NH=52;
+  const pos={}; let maxRow=0;
+  Object.keys(cols).map(Number).sort((a,b)=>a-b).forEach(c=>{
+    cols[c].forEach((n,i)=>{ pos[n.id]={x:PADX+c*CW, y:PADY+i*RH}; maxRow=Math.max(maxRow,i); });
+  });
+  const W=PADX*2+(Math.max(...Object.keys(cols).map(Number))+1)*CW;
+  const H=PADY*2+(maxRow+1)*RH;
+  host.style.width=W+'px'; host.style.height=H+'px'; svg.setAttribute('width',W); svg.setAttribute('height',H);
+  svg.innerHTML='<defs><marker id="arr" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#3b4756"/></marker></defs>';
+  g.edges.forEach(e=>{
+    const a=pos[e.src], b=pos[e.dst]; if(!a||!b) return;
+    const x1=a.x+NW, y1=a.y+NH/2, x2=b.x, y2=b.y+NH/2;
+    const back = b.x<=a.x;
+    const mx=(x1+x2)/2;
+    const d = back
+      ? `M${x1-NW/2},${y1+NH/2} C${x1},${y1+44} ${x2},${y2+44} ${x2+NW/2},${y2+NH/2}`
+      : `M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`;
+    const p=document.createElementNS('http://www.w3.org/2000/svg','path');
+    p.setAttribute('d',d); p.setAttribute('fill','none'); p.setAttribute('stroke', back?'#7d4a36':'#3b4756');
+    p.setAttribute('stroke-width','1.5'); p.setAttribute('marker-end','url(#arr)'); if(back)p.setAttribute('stroke-dasharray','4 3');
+    svg.appendChild(p);
+    if(e.label){const tx=document.createElementNS('http://www.w3.org/2000/svg','text');
+      tx.setAttribute('x',mx);tx.setAttribute('y',(y1+y2)/2-4);tx.setAttribute('fill','#8b97a7');tx.setAttribute('font-size','9');tx.setAttribute('text-anchor','middle');tx.textContent=e.label;svg.appendChild(tx);}
+  });
+  g.nodes.forEach(n=>{
+    const d=el('div','gnode kind-'+n.kind+' node-'+gid+'-'+cssId(n.id));
+    d.style.left=pos[n.id].x+'px'; d.style.top=pos[n.id].y+'px';
+    d.innerHTML=`<div class="k">${n.kind}</div>${n.label}`;
+    host.appendChild(d);
+  });
+}
+const cssId=s=>s.replace(/[^a-z0-9]/gi,'_');
+function markNode(id,cls){ ['graph','graph2'].forEach(g=>{ document.querySelectorAll('.node-'+g+'-'+cssId(id)).forEach(n=>{ if(cls==='complete')n.classList.remove('active'); n.classList.add(cls); }); }); }
+function clearNodes(){ document.querySelectorAll('.gnode').forEach(n=>n.classList.remove('active','complete')); }
+
+// ---------- tools ----------
+function renderTools(){
+  const host=$('#toolList'); host.innerHTML='';
+  const tools=(GRAPH.tools||[]);
+  if(!tools.length){host.innerHTML='<div class="hint">This is a flow — tools live on its agent nodes.</div>';return;}
+  tools.forEach(t=>{ const d=el('div','tool');
+    d.innerHTML=`<div class="nm">${t.name} <span class="badge ${t.source}">${t.source}</span></div><div class="hint">${t.description||''}</div>`;
+    host.appendChild(d); });
+}
+
+// ---------- run / SSE ----------
+let running=false;
+$('#run').onclick=run;
+async function run(){
+  if(running) return; running=true; $('#run').disabled=true;
+  $('#timeline').innerHTML=''; $('#out').textContent=''; $('#meta').innerHTML=''; clearNodes();
+  const body={input:$('#input').value, stream:$('#stream').checked};
+  const sid=$('#session').value.trim(); if(sid) body.session_id=sid;
+  const t0=performance.now();
+  try{
+    if(body.stream){
+      const resp=await fetch('/invoke',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
+      const reader=resp.body.getReader(); const dec=new TextDecoder(); let buf='';
+      while(true){ const {value,done}=await reader.read(); if(done)break; buf+=dec.decode(value,{stream:true});
+        let i; while((i=buf.indexOf('\n\n'))>=0){ const raw=buf.slice(0,i); buf=buf.slice(i+2); onEvent(raw); } }
+    } else {
+      addEv('⏳','run','non-streaming…');
+      const res=await (await fetch('/invoke',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)})).json();
+      finalResult(res);
+    }
+  }catch(e){ addEv('✖','error',String(e)); }
+  $('#meta').append(metaItem('wall', Math.round(performance.now()-t0)+' ms'));
+  running=false; $('#run').disabled=false;
+}
+// ---------- dynamic execution trace (built live from the event stream) ----------
+let TRACE={nodes:[],edges:[],byId:{}};
+function traceReset(){ TRACE={nodes:[],edges:[],byId:{}}; renderTrace(); }
+function traceAdd(id,label,kind,detail){
+  if(TRACE.byId[id]){ TRACE.byId[id].active=true; renderTrace(); return; }
+  const prev=TRACE.nodes[TRACE.nodes.length-1];
+  if(prev){ prev.active=false; prev.done=true; }
+  const n={id,label,kind,active:true,done:false,detail:detail||''};
+  TRACE.nodes.push(n); TRACE.byId[id]=n;
+  if(prev) TRACE.edges.push({src:prev.id,dst:id});
+  renderTrace();
+}
+function traceDone(id,output,ok){ const n=TRACE.byId[id]; if(!n)return;
+  n.active=false; n.done=true; if(ok===false)n.err=true; if(output!=null)n.detail=output; renderTrace(); }
+function renderTrace(){
+  const host=$('#graph'), svg=$('#edges'); if(!host||!svg) return;
+  [...host.querySelectorAll('.gnode,.trace-hint')].forEach(n=>n.remove());
+  if(!TRACE.nodes.length){ host.style.height='80px'; svg.setAttribute('height',80); svg.innerHTML='';
+    const h=el('div','trace-hint hint'); h.style.cssText='position:absolute;left:16px;top:24px';
+    h.textContent='Run the agent to watch the live execution trace build node-by-node.'; host.appendChild(h); return; }
+  const wrapW=(host.parentElement?.clientWidth||900)-30;
+  const CW=178, NW=128, NH=52, PADX=14, PADY=18, RH=88;
+  const perRow=Math.max(1,Math.floor(wrapW/CW));
+  const pos={}; let maxRow=0;
+  TRACE.nodes.forEach((n,i)=>{ const r=Math.floor(i/perRow), c=i%perRow; pos[n.id]={x:PADX+c*CW,y:PADY+r*RH,r}; maxRow=Math.max(maxRow,r); });
+  const cols=Math.min(TRACE.nodes.length,perRow);
+  const W=Math.max(wrapW,PADX*2+cols*CW), H=PADY*2+(maxRow+1)*RH;
+  host.style.width=W+'px'; host.style.height=H+'px'; svg.setAttribute('width',W); svg.setAttribute('height',H);
+  svg.innerHTML='<defs><marker id="arrT" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#3b4756"/></marker></defs>';
+  TRACE.edges.forEach(e=>{ const a=pos[e.src],b=pos[e.dst]; if(!a||!b)return; let d;
+    if(b.r>a.r) d=`M${a.x+NW/2},${a.y+NH} C${a.x+NW/2},${a.y+NH+34} ${b.x+NW/2},${b.y-34} ${b.x+NW/2},${b.y}`;
+    else d=`M${a.x+NW},${a.y+NH/2} C${a.x+NW+18},${a.y+NH/2} ${b.x-18},${b.y+NH/2} ${b.x},${b.y+NH/2}`;
+    const p=document.createElementNS('http://www.w3.org/2000/svg','path');
+    p.setAttribute('d',d);p.setAttribute('fill','none');p.setAttribute('stroke','#3b4756');p.setAttribute('stroke-width','1.6');p.setAttribute('marker-end','url(#arrT)');
+    svg.appendChild(p); });
+  TRACE.nodes.forEach(n=>{ const d=el('div','gnode kind-'+n.kind+(n.active?' active':'')+(n.done?' complete':'')+(n.err?' err':''));
+    d.style.left=pos[n.id].x+'px'; d.style.top=pos[n.id].y+'px'; d.title=n.detail||'';
+    d.innerHTML=`<div class="k">${esc(n.kind)}</div>${esc(n.label)}`; host.appendChild(d); });
+}
+
+function onEvent(raw){
+  let data=null;
+  raw.split('\n').forEach(l=>{ if(l.startsWith('data:')){ try{data=JSON.parse(l.slice(5).trim());}catch{} } });
+  if(!data) return;
+  switch(data.type){
+    case 'step': addEv('●','step','step '+data.step); markNode('model','active'); break;
+    case 'node_start': markNode(data.id,'active'); addEv('▸','node',`<b>${esc(data.name)}</b> <span class="k">${data.kind}</span> started`); break;
+    case 'node_end': markNode(data.id,'complete');
+        addEv('✓','node',`<b>${esc(data.name)}</b> done`+ (data.output?`<pre>${esc(data.output)}</pre>`:'')); break;
+    case 'tool_start': markNode('tool','active');
+        addEv('🔧','tool',`<b>${esc(data.name)}</b>(${esc(JSON.stringify(data.args))})`); break;
+    case 'tool_end': markNode('tool','complete');
+        addEv(data.ok?'✓':'✖','tool',`<b>${esc(data.name)}</b> → <pre>${esc(JSON.stringify(data.content))}</pre>`); break;
+    case 'token': appendOut(data.text); break;
+    case 'done': markNode('memory_write','complete'); markNode('__end__','complete'); finalResult(data.result); break;
+    case 'error': markNode('__end__','complete'); addEv('✖','error',esc(data.error?.type+': '+data.error?.message)); break;
+  }
+}
+function finalResult(res){
+  if(res.output && !$('#out').textContent) $('#out').textContent=res.output;
+  if(res.output) $('#out').textContent=res.output;
+  const m=$('#meta'); m.innerHTML='';
+  m.append(metaItem('status', res.status));
+  m.append(metaItem('tokens', res.usage?.total_tokens ?? 0));
+  m.append(metaItem('tool calls', (res.tool_calls||[]).length));
+  m.append(metaItem('messages', (res.messages||[]).length));
+  if(res.trace_url) m.append(metaLink('trace', res.trace_url));
+  if(res.error) addEv('✖','error', esc(res.error.type+': '+res.error.message));
+  (res.tool_calls||[]).forEach(tc=> addEv('🔧','tool',`<b>${tc.name}</b> → <pre>${esc(JSON.stringify(tc.content))}</pre>`));
+}
+function appendOut(t){ $('#out').textContent += t; }
+function addEv(ico,cls,html){ const e=el('div','ev'); e.append(el('span','t',new Date().toLocaleTimeString()));
+  e.append(el('span','ico',ico)); e.append(el('span','body',html)); $('#timeline').prepend(e); }
+function metaItem(k,v){ return el('span',null,`${k}: <b>${v}</b>`); }
+function metaLink(k,v){ const s=el('span',null,`${k}: `); const a=el('a',null,'open'); a.href=v; a.target='_blank'; s.append(a); return s; }
+const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+
+// ---------- runs ----------
+$('#loadRun').onclick=async()=>{ const id=$('#rsid').value.trim(); if(!id)return;
+  const r=await fetch('/runs/'+encodeURIComponent(id)); $('#runOut').textContent = r.ok? JSON.stringify(await r.json(),null,2):'404 — no run for that session'; };
+$('#resumeRun').onclick=async()=>{ const id=$('#rsid').value.trim(); if(!id)return;
+  const r=await fetch('/runs/'+encodeURIComponent(id)+'/resume',{method:'POST'}); $('#runOut').textContent=JSON.stringify(await r.json(),null,2); };
+
+// ---------- components map ----------
+const COMPONENTS=[
+  {n:'Runtime',d:'Serverless agent/flow execution loop',e:['POST /invoke'],t:'run',s:i=>['ready','ok']},
+  {n:'Sessions & Checkpointing',d:'Durable runs, resume by session id',e:['GET /runs/{id}','POST /runs/{id}/resume'],t:'runs',s:i=> i.kind==='agent'?['durable · SQLite','ok']:['stateless','mut']},
+  {n:'Gateway · Tools + MCP',d:'Local tools; consume & expose MCP servers',e:['POST /mcp'],t:'tools',s:i=>[`${i.tools} tools`+(i.mcp_servers.length?` · MCP×${i.mcp_servers.length}`:''), i.tools?'ok':'mut']},
+  {n:'Memory',d:'session / user / agent scopes, semantic recall',e:['GET /memory'],t:'memory',s:i=> i.memory?['enabled','ok']:['disabled','mut']},
+  {n:'Identity & Secrets',d:'env/keyring secret providers, credential resolver, inbound bearer auth',e:[],t:null,s:i=> i.auth?['auth required','ok']:['open · localhost','amb']},
+  {n:'Observability',d:'traces + spans + Prometheus metrics',e:['GET /metrics'],t:'metrics',s:i=> [i.observability, (!['noop','none'].includes(i.observability))?'ok':'mut']},
+  {n:'Code Interpreter',d:'sandboxed code exec · trusted subprocess / untrusted E2B',e:[],t:'tools',s:i=> i.tool_names.includes('run_code')?['loaded','ok']:['not loaded','mut']},
+  {n:'Browser',d:'web automation (navigate/click/type/extract)',e:[],t:'tools',s:i=> i.tool_names.includes('browser')?['loaded','ok']:['not loaded','mut']},
+  {n:'Evaluations',d:'dataset × metrics scoring (task-success, tool-correctness, …)',e:['POST /eval'],t:'evals',s:i=>['available','ok']},
+  {n:'A2A Protocol',d:'call peer agents as tools + publish Agent Card',e:['POST /a2a','GET /.well-known/agent.json'],t:null,s:i=> i.a2a_peers.length?[`peers×${i.a2a_peers.length}`,'ok']:['served','ok']},
+  {n:'Multi-agent Orchestration',d:'flows: sequential · parallel · conditional · loop · map',e:['GET /graph'],t:'graph',s:i=> i.kind==='flow'?['flow graph','ok']:['single agent','mut']},
+];
+function renderComponents(){
+  const host=$('#components'); host.innerHTML='';
+  COMPONENTS.forEach(c=>{
+    const [txt,tone]=c.s(INFO);
+    const color={ok:'var(--green)',amb:'var(--amber)',mut:'var(--muted)'}[tone];
+    const card=el('div','card'); card.style.margin='0'; card.style.cursor=c.t?'pointer':'default';
+    card.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center"><b>${c.n}</b><span class="badge" style="color:${color};border-color:${color}">${txt}</span></div>
+      <div class="hint" style="margin:6px 0">${c.d}</div>
+      <div class="mono" style="font-size:11px;color:var(--muted)">${c.e.join(' · ')||'&nbsp;'}</div>`;
+    if(c.t) card.onclick=()=>document.querySelector('.tab[data-v="'+c.t+'"]').click();
+    host.append(card);
+  });
+}
+
+// ---------- evals ----------
+function seedEval(){
+  if($('#evalData').value.trim()) return;
+  const ds=(INFO.examples||['hello']).slice(0,3).map(x=>({input:x}));
+  $('#evalData').value=JSON.stringify(ds,null,2);
+}
+$('#runEval').onclick=async()=>{
+  let dataset; try{dataset=JSON.parse($('#evalData').value);}catch(e){$('#evalOut').innerHTML='<div class="hint">invalid JSON dataset</div>';return;}
+  const metrics=[...document.querySelectorAll('.emetric:checked')].map(c=>c.value);
+  $('#evalOut').innerHTML='<div class="hint" style="margin-top:10px">running '+dataset.length+' items…</div>';
+  const r=await (await fetch('/eval',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({dataset,metrics})})).json();
+  const host=$('#evalOut'); host.innerHTML='<h3 style="margin-top:14px">scores (mean over '+r.n+' items)</h3>';
+  Object.entries(r.metrics).forEach(([k,v])=>{
+    const pct=Math.max(0,Math.min(100, k==='latency_ms'? 0 : v*100));
+    const row=el('div'); row.style.margin='8px 0';
+    row.innerHTML=`<div class="kv"><b>${k}</b><span>${v}</span></div>
+      <div style="height:8px;background:var(--panel2);border-radius:5px;overflow:hidden"><div style="height:100%;width:${pct}%;background:var(--green)"></div></div>`;
+    host.append(row);
+  });
+};
+
+// ---------- memory ----------
+$('#memRefresh').onclick=loadMemory;
+$('#memSearch').onclick=memorySearch;
+async function loadMemory(){
+  const m=await (await fetch('/memory')).json();
+  const stats=$('#memStats'); stats.innerHTML='';
+  if(!m.enabled){ stats.innerHTML='<span class="hint">Memory is not enabled on this app (pass memory=MemoryConfig(...) to the Agent).</span>';
+    ['session','user','agent'].forEach(s=>$('#mem-'+s).innerHTML=''); $('#memSummaries').innerHTML=''; return; }
+  stats.append(metaItem('backend',m.backend));
+  stats.append(metaItem('strategies',(m.strategies||[]).join(', ')));
+  stats.append(metaItem('embedder',m.embedder));
+  stats.append(metaItem('top_k',m.top_k));
+  stats.append(metaItem('records', Object.values(m.counts||{}).reduce((a,b)=>a+b,0)));
+  ['session','user','agent'].forEach(s=>{
+    const host=$('#mem-'+s); host.innerHTML='';
+    const recs=(m.scopes[s]||[]);
+    if(!recs.length){host.innerHTML='<div class="hint">empty</div>';return;}
+    recs.forEach(r=>{ const d=el('div','tool');
+      d.innerHTML=`<div>${esc(r.text)}</div><div class="kv">`+Object.entries(r.metadata||{}).filter(([k,v])=>v!=null).map(([k,v])=>`<span class="badge">${k}=${esc(v)}</span>`).join('')+`</div>`;
+      host.append(d); });
+  });
+  const sm=$('#memSummaries'); sm.innerHTML='';
+  const ents=Object.entries(m.summaries||{});
+  if(!ents.length) sm.innerHTML='<div class="hint">none yet</div>';
+  ents.forEach(([sid,txt])=>{ const d=el('div','tool'); d.innerHTML=`<div class="nm">${esc(sid)}</div><div class="hint">${esc(txt)}</div>`; sm.append(d); });
+}
+async function memorySearch(){
+  const q=$('#memQ').value.trim(); if(!q)return;
+  const scope=$('#memScope').value;
+  const r=await (await fetch('/memory/search?q='+encodeURIComponent(q)+'&scope='+scope)).json();
+  const host=$('#memSearchOut'); host.innerHTML='<h3 style="margin-top:14px">ranked results</h3>';
+  if(!r.results.length){host.append(el('div','hint','no matches'));return;}
+  r.results.forEach(x=>{ const d=el('div','tool'); d.innerHTML=`<div>${esc(x.text)}</div><div class="kv"><span class="badge local">score ${(x.score||0).toFixed(3)}</span></div>`; host.append(d); });
+}
+
+// ---------- metrics ----------
+$('#refreshM').onclick=loadMetrics;
+async function loadMetrics(){ try{$('#metrics').textContent=await (await fetch('/metrics')).text();}catch{$('#metrics').textContent='unavailable';} }
+
+// ---------- examples ----------
+function seedExamples(info){
+  const ex = info.examples || [];
+  const host=$('#examples'); if(!ex.length){host.textContent='';return;}
+  host.append(document.createTextNode('try: '));
+  ex.forEach(s=>{ const a=el('span','ex',s.length>52?s.slice(0,52)+'…':s); a.title=s; a.onclick=()=>{$('#input').value=s;}; host.append(a); });
+}
+boot();
+</script>
+</body>
+</html>
